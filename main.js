@@ -565,7 +565,7 @@ function query_wifis(){
     console.log("enter query_wifis");
     // console.log(timeStart.valueOf());
     // console.log(timeEnd.valueOf());
-    var url = "http://78.47.91.93/api/locationslatestMacAddresByUser?"
+    var url = "http://api.gointersect.com/api/locationslatestMacAddresByUser?"
             + "&userId=" + user_id
             + "&size=" + 1000
             + "&timeStart=" + timeStart.valueOf()//1144901202356
