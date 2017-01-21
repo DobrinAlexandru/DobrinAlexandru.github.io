@@ -1,16 +1,13 @@
 var map;
 var openInfowindow;
 var previous_pos = 0;
-var locations = [];
-var wifiLoaded = 0;
+var locations;
+
 // var flightPath;
 var markers = [];
 var infowindows = [];
 var circles = [];
-var wifis =[];
-var wifisBatch = [];
-var wifiBatchDetected = [];
-var wifiDetected = 0;
+
 function getLocationTuple(location){
   return (location.latitude+"").slice(0,10) + "," + (location.longitude + "").slice(0,10);
 }
@@ -33,46 +30,6 @@ function list_locations() {
     ).appendTo(".locations-list");
   });
 }
-
-function list_wifis() {
-  // var locationsHere = {};
-  // console.log(locations);
-  // _.each(locations, function(location){
-  //   console.log(getLocationTuple(location));
-  //   locationsHere[getLocationTuple(location)] = (locationsHere[getLocationTuple(location)] || 0) + 1;
-  // });
-  console.log("wifis leng" + wifis.length);
-  console.log("wifisBatch length" + wifisBatch.length);
-  console.log("wifiBatchDetected " + JSON.stringify(wifiBatchDetected));
-  _.each(wifisBatch, function(wifiList, idx){
-    console.log("idx" + idx)
-    var ok = false;
-    if(wifiBatchDetected[idx])
-      ok = true;
-    var loadedState= "";
-    if(ok){
-      loadedState = "Batch localizat";
-    } else {
-      loadedState = "Batch nelocalizat";
-    }
-    $('<a href="#" class="list-group-item">'
-      + JSON.stringify(wifiList)
-      + '<br/>' + loadedState
-      // +'<span class="badge">'
-      // + (locationsHere[getLocationTuple(location)])
-      // +'</span>'
-      +'</a>'
-    ).appendTo(".wifi-list");
-  });
-}
-
-function list_stats() {  
-  $('<a href="#" class="list-group-item">'
-    + '<br/>' + wifiDetected + " din " + wifisBatch.length + " wifiBatch localizate"
-    +'</a>'
-  ).appendTo(".stats-list");
-}
-
 
 function change_pos(val){
   show_pos(previous_pos + val);
@@ -182,148 +139,7 @@ function latestLocations(){
 }
 function refresh(){
   deleteMarkers();
-  query_wifis();
-}
-
-function processWifis(){
-  console.log("process wifis");
-  var index = 0;
-  var lastMac = [];
-  var lastlastMac = [];
-  var lastTime  = 0;
-  var wifisByIndex = [];
-  var batchCounter = 0;
-  wifiDetected = 0;
-  _.each(wifis, function(object) {
-      
-      if(index >= 1){
-          if(lastTime != object._source.timeStart){
-            end = index - 1;
-            lastTime = object._source.timeStart;
-            findLocationForWifiPair(start, end, wifis[end]._source.timeStart,  wifis[end]._source.timeEnd, wifis[end]._source.timeSpent, batchCounter);
-            batchCounter++;
-            start = index;
-          } 
-      } else {
-          lastTime = object._source.timeStart;
-          start = index;
-      } index ++;
-  });
-
-  if(index >= 2 && wifis[index - 2]._source.timeStart == wifis[index-1]._source.timeStart){
-    end = index - 1;
-   findLocationForWifiPair(start, end, wifis[end]._source.timeStart,  wifis[end]._source.timeEnd, wifis[end]._source.timeSpent, batchCounter+1);
-  }
-
   query_parse();
-}
-
-
-function findLocationForWifiPair(start, end,  timeStart, timeEnd, timeSpent, batchCounter){
- 
-    // console.log(timeEnd.valueOf());
-    var url = "https://www.googleapis.com/geolocation/v1/geolocate?key=AIzaSyDQ_6qkQuh5MMIzcCDCey2Sb1m7YFxb07Q";
-    var info = "";
-    var macAddressList  = [];
-  //  var wifiNames =  moment(timeStart).calendar()  + ' - ' +   moment(timeEnd).calendar();
-      var wifiNames = ""
-      for(var i = start; i <= end ; i++ ){
-          macAddressList.push({"macAddress": wifis[i]._source.address});
-          wifiNames= wifiNames + '<br/>' + wifis[i]._source.name + moment(wifis[i]._source.timeStart).calendar()  + ' - ' +   moment(wifis[i]._source.timeEnd).calendar();
-          console.log( wifis[i]._source.timeStart);
-          info = info + wifis[i]._source.name +  '<br/>' ;
-      };
-    wifisBatch.push(wifiNames);
-    var data = {
-      "considerIp": "false",
-      "wifiAccessPoints": macAddressList};
-    // url = "http://query.yahooapis.com/v1/public/yql";
-    function createCORSRequest(method, url) {
-      var xhr = new XMLHttpRequest();
-      if ("withCredentials" in xhr) {
-        // Check if the XMLHttpRequest object has a "withCredentials" property.
-        // "withCredentials" only exists on XMLHTTPRequest2 objects.
-        xhr.open(method, url, true);
-        xhr.setRequestHeader('Content-Type', 'application/json'); 
-      } else if (typeof XDomainRequest != "undefined") {
-
-        // Otherwise, check if XDomainRequest.
-        // XDomainRequest only exists in IE, and is IE's way of making CORS requests.
-        xhr = new XDomainRequest();
-        xhr.open(method, url);
-         xhr.setRequestHeader('Content-Type', 'application/json'); 
-      } else {
-        // Otherwise, CORS is not supported by the browser.
-        xhr = null;
-      }
-      return xhr;
-    }
-
-    var xhr = createCORSRequest('POST', url);
-    if (!xhr) {
-      throw new Error('CORS not supported');
-    }
-
-    xhr.onload = function() {
-     var responseText = xhr.responseText;
-     console.log(responseText);
-     // process the response.
-     
-     var results = JSON.parse(responseText).location;
-  
-    
-     console.log(results);
-     if(!results){
-       console.log("No locations found for that wifi batch");
-     } else {// find locations for wifis
-        var location  = results;
-        location.timeSpent = timeSpent;
-        location.timeStart = timeStart;
-        location.timeEnd = timeEnd;
-        location.latitude = results.lat;
-        location.longitude = results.lng;
-        location.isWifiLocation = true;
-        location.accuracy = 75;
-        location.info = JSON.stringify(info);
-        wifiLoaded++;
-        wifiDetected++;
-        console.log("batchCounter" + batchCounter);
-        wifiBatchDetected[batchCounter] = true;
-        console.log("wifiLoaded");
-        if(locations == null)
-          locations = [];
-        locations.push(location);
-      }
-
-    };
-
-    xhr.onerror = function() {
-      console.log("locations query error: " + xhr);
-      console.log("locations query error: " + xhr.responseText);
-      alert("locations query error: " + xhr.responseText);
-    };
-
-    xhr.send(JSON.stringify(data));
-
-
-    // $.ajax({
-    //   type: "GET",
-    //   // dataType: 'jsonp',
-    //   url: url,
-    //   // jsonp: "callback",
-    //   // username: 'user',
-    //   // password: 'pass',
-    //   // crossDomain : true,
-    //   // xhrFields: {
-    //   //     withCredentials: true
-    //   // }
-    // }).done(function( results ) {
-    //
-    // }).fail( function(xhr, textStatus, errorThrown) {
-    //
-    // });
-    // $.getJSON(url, function(results, status){
-    // });
 }
 
 function initialize_map() {
@@ -339,7 +155,7 @@ function initialize_map() {
     $("#user_id").val(localStorage["lastId"]);
     $("input[name='timeStart']").val(localStorage["lastTimeStart"]);
     $("input[name='timeEnd']").val(localStorage["lastTimeEnd"]);
-    query_wifis();
+    query_parse();
   }
   Parse.initialize("XxAKpRlTJIny9YsHIb1bdoCuWJhm4InfOgI2GvWB", "YIyH7FMxqvvCBPvbgecPiy7qcXeqa2lR00k3xhcA");
   $("input[name='timeStart']").datetimepicker();
@@ -351,7 +167,6 @@ google.maps.event.addDomListener(window, 'load', initialize_map);
 var nickname_hash = {
   "Laur": "062fD4ZI73",
   "Antonio": "CVgQg6RtAQ",
-  "Andrei": "5zxDtPojrO",
   "Alex": "YtYnzJwAoM",
   "Bianca": "aRkVut5mHn",
   "Isabella": "szxW8h7904",
@@ -471,158 +286,15 @@ function query_parse(){
      var results = JSON.parse(responseText).locations;
 
      results.reverse();
-     
-     console.log(results.length + " locations fetched.");
-     if(results.length == 0){
-       alert("No locations in this time range for that user");
-     }
-     if(locations == null)
-        locations = [];
-     _.each(results, function(location) {
-          if(location.accuracy != 300)
-             locations.push(location);
-      });
-
-     load_data();
-     if(window.screen.width > 500)
-       list_locations();
-        list_wifis();
-        list_stats();
-    };
-
-    xhr.onerror = function() {
-      console.log("locations query error: " + xhr);
-      console.log("locations query error: " + xhr.responseText);
-      alert("locations query error: " + xhr.responseText);
-    };
-
-    xhr.send();
-
-
-    // $.ajax({
-    //   type: "GET",
-    //   // dataType: 'jsonp',
-    //   url: url,
-    //   // jsonp: "callback",
-    //   // username: 'user',
-    //   // password: 'pass',
-    //   // crossDomain : true,
-    //   // xhrFields: {
-    //   //     withCredentials: true
-    //   // }
-    // }).done(function( results ) {
-    //
-    // }).fail( function(xhr, textStatus, errorThrown) {
-    //
-    // });
-    // $.getJSON(url, function(results, status){
-    // });
-  }//if
-}
-
-
-function query_wifis(){
-  console.log("query wifis function");
-  locations = [];
-  wifisBatch = [];
-  wifis = [];
-
-  // var query = new Parse.Query("Locations");
-  console.log("query wifis click submit button");
-  var user_id = $("#user_id").val();
-  // var query_timeStart, query_timeEnd;
-  // console.log(user_id);
-  // console.log(nickname_hash);
-  user_id = nickname_hash[user_id] || user_id;
-  // console.log(user_id);
-
-  var timeEnd = $("input[name='timeEnd']").val();
-  localStorage["lastTimeEnd"] = timeEnd;
-  if(!timeEnd)
-    timeEnd = moment().endOf('day');
-  else timeEnd = moment(timeEnd);
-  // query_timeEnd = timeEnd;
-
-  var timeStart = $("input[name='timeStart']").val();
-  localStorage["lastTimeStart"] = timeStart;
-  if(!timeStart)
-    timeStart = moment().startOf('day');
-  else timeStart = moment(timeStart);
-  // query_timeStart = timeStart;
-  // if(timeStart){
-  //   timeStart = moment(timeStart);
-  //   query_timeStart = timeStart;
-  // }
-  // else {
-  //   timeStart = moment().startOf('day');
-  //   query_timeEnd = timeStart;
-  // }
-
-  // query.descending("time_start");
-  // query.limit(1000);
-
-  if(user_id) {
-    console.log("enter query_wifis");
-    // console.log(timeStart.valueOf());
-    // console.log(timeEnd.valueOf());
-    var url = "http://api.gointersect.com/api/locationslatestMacAddresByUser?"
-            + "&userId=" + user_id
-            + "&size=" + 1000
-            + "&timeStart=" + timeStart.valueOf()//1144901202356
-            + "&timeEnd=" + timeEnd.valueOf()//1544928202337
-            + "&pw=4loc4";
-    console.log("url to post" + url);
-    // url = "http://query.yahooapis.com/v1/public/yql";
-    function createCORSRequest(method, url) {
-      var xhr = new XMLHttpRequest();
-      if ("withCredentials" in xhr) {
-
-        // Check if the XMLHttpRequest object has a "withCredentials" property.
-        // "withCredentials" only exists on XMLHTTPRequest2 objects.
-        xhr.open(method, url, true);
-
-      } else if (typeof XDomainRequest != "undefined") {
-
-        // Otherwise, check if XDomainRequest.
-        // XDomainRequest only exists in IE, and is IE's way of making CORS requests.
-        xhr = new XDomainRequest();
-        xhr.open(method, url);
-
-      } else {
-
-        // Otherwise, CORS is not supported by the browser.
-        xhr = null;
-
-      }
-      return xhr;
-    }
-
-    var xhr = createCORSRequest('GET', url);
-    if (!xhr) {
-      throw new Error('CORS not supported');
-    }
-
-    xhr.onload = function() {
-      console.log("query wifis loaded");
-     var responseText = xhr.responseText;
-     console.log(responseText);
-     // process the response.
-     var results = JSON.parse(responseText).macAddress;
-     console.log("wifis found" + JSON.stringify(results));
-     results.reverse();
      console.log(results);
      console.log(results.length + " locations fetched.");
      if(results.length == 0){
        alert("No locations in this time range for that user");
-     } else {// find locations for wifis
-      console.log("query wifis start process wifis");
-       wifis = results;
-       processWifis();
-       load_data();
-       if(window.screen.width > 500)
-         list_locations();
-      
-      }
+     }
+     locations = results;
+     load_data();
+     if(window.screen.width > 500)
+       list_locations();
     };
 
     xhr.onerror = function() {
@@ -656,7 +328,7 @@ function query_wifis(){
 }
 
 
-$("#submit_button").click(query_wifis);
+$("#submit_button").click(query_parse);
 $("#user_id").keyup(function(e){
   if(e.keyCode == 13)
   {
@@ -717,6 +389,7 @@ function plotPinsAndCircles(objects){
   }
 }
 
+
 function showLocations(users){
   for(var i = 0; i < users.length; i++){
     console.log(i);
@@ -750,7 +423,7 @@ function showLocations(users){
         user.get("latitude"),
         user.get("longitude")),
       content: contentString,
-      maxWidth: 500
+      maxWidth: 200
     }));
     google.maps.event.addListener(markers[i], 'click', _.partial(function(i){
       return function(){
@@ -817,11 +490,13 @@ function load_data(){
             + '\n' + "broadcastTime: "
               // + moment(locations[i].get("broadcastTime")).calendar()
             + '\n' + "user_id: " + locations[i].userId
-            + '\n' + locations[i].info
       })
     };
-    if(locations[i].isWifiLocation){
-      markers.push(newMarker('https://maps.google.com/mapfiles/ms/icons/blue-dot.png'));
+    if(i == 0){
+      markers.push(newMarker('https://maps.google.com/mapfiles/ms/icons/green-dot.png'));
+    }
+    else if(i == locations.length - 1){
+      markers.push(newMarker('https://maps.google.com/mapfiles/ms/icons/purple-dot.png'));
     }
     else {
       markers.push(newMarker('https://maps.google.com/mapfiles/ms/icons/red-dot.png'));
@@ -832,7 +507,7 @@ function load_data(){
       strokeWeight: 1,
       fillOpacity: 0.05,
       map: map,
-      radius: 75,    // x miles in metres
+      radius: locations[i].accuracy,    // x miles in metres
       fillColor: (locations[i].accuracy == 200
        || locations[i].accuracy == 69)?'#21F321':'#2196F3' //geofence
     }));
@@ -855,7 +530,6 @@ function load_data(){
       + '<br/>' + "broadcastTime: "
         // + moment(locations[i].get("broadcastTime")).calendar()
       + '<br/>' + "user_id: " + locations[i].userId
-      + '<br/>' + "macids :" +'<br/>'+ locations[i].info
       + '</div>';
     infowindows.push(new google.maps.InfoWindow({
       position: new google.maps.LatLng(
