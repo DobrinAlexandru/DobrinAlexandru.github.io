@@ -9,20 +9,20 @@ var infowindows = [];
 var circles = [];
 
 function getLocationTuple(location){
-  return (location.get("location").latitude+"").slice(0,10) + "," + (location.get("location").longitude + "").slice(0,10);
+  return (location.latitude+"").slice(0,10) + "," + (location.longitude + "").slice(0,10);
 }
 function list_locations() {
   // var locationsHere = {};
-  console.log(locations);
+  // console.log(locations);
   // _.each(locations, function(location){
   //   console.log(getLocationTuple(location));
   //   locationsHere[getLocationTuple(location)] = (locationsHere[getLocationTuple(location)] || 0) + 1;
   // });
   _.each(locations, function(location, idx){
     $('<a href="#" class="list-group-item" onclick="show_pos('+ idx +')">'
-      + moment(location.get("time_start")).calendar()
+      + moment(location.timeStart).calendar()
       + ' - '
-      + moment(location.get("time_end")).calendar()
+      + moment(location.timeEnd).calendar()
       // +'<span class="badge">'
       // + (locationsHere[getLocationTuple(location)])
       // +'</span>'
@@ -41,11 +41,11 @@ function show_pos(i){
   if(i < 0)
     i = locations.length - 1;
 
-  console.log(markers[i]);
-  console.log(locations[i]);
+  // console.log(markers[i]);
+  // console.log(locations[i]);
   map.setCenter(new google.maps.LatLng(
-    locations[i].get("location").latitude,
-    locations[i].get("location").longitude)
+    locations[i].latitude,
+    locations[i].longitude)
   );
   markers[i].setIcon('https://maps.google.com/mapfiles/ms/icons/yellow-dot.png');
   if(previous_pos == 0)
@@ -73,7 +73,10 @@ function show_pos(i){
 }
 
 function compute_distance(a, b){
-  var km = a.get("location").kilometersTo(b.get("location"));
+  console.log(a);
+  a = new Parse.GeoPoint(a);
+  b = new Parse.GeoPoint(b);
+  var km = a.kilometersTo(b);
   // console.log(dist);
   return km * 1000;
 }
@@ -123,7 +126,7 @@ function plotArray(){
 }
 
 function clearMap(){
-  // $("#parse_id").val('');
+  // $("#user_id").val('');
   $("input[name='timeStart']").val('');
   $("input[name='timeEnd']").val('');
   localStorage["lastId"] = '';
@@ -149,17 +152,17 @@ function initialize_map() {
   map = new google.maps.Map(document.getElementById('map-canvas'),
       mapOptions);
   if(localStorage["lastId"]){
-    $("#parse_id").val(localStorage["lastId"]);
+    $("#user_id").val(localStorage["lastId"]);
     $("input[name='timeStart']").val(localStorage["lastTimeStart"]);
     $("input[name='timeEnd']").val(localStorage["lastTimeEnd"]);
     query_parse();
   }
+  Parse.initialize("XxAKpRlTJIny9YsHIb1bdoCuWJhm4InfOgI2GvWB", "YIyH7FMxqvvCBPvbgecPiy7qcXeqa2lR00k3xhcA");
+  $("input[name='timeStart']").datetimepicker();
+  $("input[name='timeEnd']").datetimepicker();
 }
 
 google.maps.event.addDomListener(window, 'load', initialize_map);
-Parse.initialize("XxAKpRlTJIny9YsHIb1bdoCuWJhm4InfOgI2GvWB", "YIyH7FMxqvvCBPvbgecPiy7qcXeqa2lR00k3xhcA");
-$("input[name='timeStart']").datetimepicker();
-$("input[name='timeEnd']").datetimepicker();
 
 var nickname_hash = {
   "Laur": "062fD4ZI73",
@@ -204,57 +207,129 @@ function query_latest_locations(){
 }
 
 function query_parse(){
-  var query = new Parse.Query("Locations");
+  // var query = new Parse.Query("Locations");
 
-  var parse_id = $("#parse_id").val();
-  parse_id = nickname_hash[parse_id] || parse_id;
-
-  if(parse_id)
-    query.equalTo("user_id", parse_id);
+  var user_id = $("#user_id").val();
+  // var query_timeStart, query_timeEnd;
+  // console.log(user_id);
+  // console.log(nickname_hash);
+  user_id = nickname_hash[user_id] || user_id;
+  // console.log(user_id);
 
   var timeEnd = $("input[name='timeEnd']").val();
   localStorage["lastTimeEnd"] = timeEnd;
   if(!timeEnd)
     timeEnd = moment().endOf('day');
   else timeEnd = moment(timeEnd);
-  query.lessThan("time_end", timeEnd.toDate());
+  // query_timeEnd = timeEnd;
 
   var timeStart = $("input[name='timeStart']").val();
   localStorage["lastTimeStart"] = timeStart;
-  if(timeStart){
-    timeStart = moment(timeStart);
-    query.greaterThan("time_start", timeStart.toDate());
-  }
-  else {
+  if(!timeStart)
     timeStart = moment().startOf('day');
-    query.greaterThan("time_end", timeStart.toDate());
-  }
+  else timeStart = moment(timeStart);
+  // query_timeStart = timeStart;
+  // if(timeStart){
+  //   timeStart = moment(timeStart);
+  //   query_timeStart = timeStart;
+  // }
+  // else {
+  //   timeStart = moment().startOf('day');
+  //   query_timeEnd = timeStart;
+  // }
 
-  query.descending("time_start");
-  query.limit(1000);
-  query.find()
-    .then(function(results){
-      results.reverse()
-      console.log(results);
-      console.log(results.length + " locations fetched.");
-      if(results.length == 0){
-        alert("No locations in this time range for that user");
+  // query.descending("time_start");
+  // query.limit(1000);
+
+  if(user_id) {
+    // console.log(timeStart.valueOf());
+    // console.log(timeEnd.valueOf());
+    var url = "http://api.gointersect.com/api/userLocations?"
+            + "&userId=" + user_id
+            + "&timeStart=" + timeStart.valueOf()//1144901202356
+            + "&timeEnd=" + timeEnd.valueOf()//1544928202337
+            + "&pw=4loc4";
+    // url = "http://query.yahooapis.com/v1/public/yql";
+    function createCORSRequest(method, url) {
+      var xhr = new XMLHttpRequest();
+      if ("withCredentials" in xhr) {
+
+        // Check if the XMLHttpRequest object has a "withCredentials" property.
+        // "withCredentials" only exists on XMLHTTPRequest2 objects.
+        xhr.open(method, url, true);
+
+      } else if (typeof XDomainRequest != "undefined") {
+
+        // Otherwise, check if XDomainRequest.
+        // XDomainRequest only exists in IE, and is IE's way of making CORS requests.
+        xhr = new XDomainRequest();
+        xhr.open(method, url);
+
+      } else {
+
+        // Otherwise, CORS is not supported by the browser.
+        xhr = null;
+
       }
-      locations = results;
-      load_data();
-      if(window.screen.width > 500)
-        list_locations();
-      // analyze_dist();
-    },
-    function(error){
-      console.log("locations query error: " + error.message);
+      return xhr;
     }
-  );
+
+    var xhr = createCORSRequest('GET', url);
+    if (!xhr) {
+      throw new Error('CORS not supported');
+    }
+
+    xhr.onload = function() {
+     var responseText = xhr.responseText;
+     console.log(responseText);
+     // process the response.
+     var results = JSON.parse(responseText).locations;
+
+     results.reverse();
+     console.log(results);
+     console.log(results.length + " locations fetched.");
+     if(results.length == 0){
+       alert("No locations in this time range for that user");
+     }
+     locations = results;
+     load_data();
+     if(window.screen.width > 500)
+       list_locations();
+    };
+
+    xhr.onerror = function() {
+      console.log("locations query error: " + xhr);
+      console.log("locations query error: " + xhr.responseText);
+      alert("locations query error: " + xhr.responseText);
+    };
+
+    xhr.send();
+
+
+    // $.ajax({
+    //   type: "GET",
+    //   // dataType: 'jsonp',
+    //   url: url,
+    //   // jsonp: "callback",
+    //   // username: 'user',
+    //   // password: 'pass',
+    //   // crossDomain : true,
+    //   // xhrFields: {
+    //   //     withCredentials: true
+    //   // }
+    // }).done(function( results ) {
+    //
+    // }).fail( function(xhr, textStatus, errorThrown) {
+    //
+    // });
+    // $.getJSON(url, function(results, status){
+    // });
+  }//if
 }
 
 
 $("#submit_button").click(query_parse);
-$("#parse_id").keyup(function(e){
+$("#user_id").keyup(function(e){
   if(e.keyCode == 13)
   {
       refresh();
@@ -269,8 +344,8 @@ $("input[name='timeEnd']").on('input', function(e) {
   localStorage["lastTimeEnd"] = $("input[name='timeEnd']").val();;
 });
 
-$("#parse_id").on('input', function(e) {
-  localStorage["lastId"] = $("#parse_id").val();
+$("#user_id").on('input', function(e) {
+  localStorage["lastId"] = $("#user_id").val();
 });
 
 
@@ -317,11 +392,12 @@ function plotPinsAndCircles(objects){
 
 function showLocations(users){
   for(var i = 0; i < users.length; i++){
+    console.log(i);
     var user = users[i];
     if(!user || !user.get("location")) continue;
     var newMarker = function(icon){
       return new google.maps.Marker({
-        position: new google.maps.LatLng(user.get("location").latitude,  user.get("location").longitude),
+        position: new google.maps.LatLng(user.get("latitude"), user.get("longitude")),
         map: map,
         icon: icon,
         title: "#" + (i + 1)
@@ -344,8 +420,8 @@ function showLocations(users){
       + '</div>';
     infowindows.push(new google.maps.InfoWindow({
       position: new google.maps.LatLng(
-        user.get("location").latitude,
-        user.get("location").longitude),
+        user.get("latitude"),
+        user.get("longitude")),
       content: contentString,
       maxWidth: 200
     }));
@@ -372,16 +448,18 @@ function showLocations(users){
 }
 
 function load_data(){
+  if(!locations.length)
+    return;
   var flightPlanCoordinates = [];
 
   map.setCenter(new google.maps.LatLng(
-    locations[locations.length - 1].get("location").latitude,
-    locations[locations.length - 1].get("location").longitude)
+    locations[locations.length - 1].latitude,
+    locations[locations.length - 1].longitude)
   );
   map.setZoom(15);
 
   for(var i = 0; i < locations.length; i++){
-    var seconds = locations[i].get("time_spent")/1000;
+    var seconds = locations[i].timeSpent/1000;
     var minutes = seconds/60;
     var hours = minutes/60;
     var days = hours/24;
@@ -393,25 +471,25 @@ function load_data(){
 
     var newMarker = function(icon){
       return new google.maps.Marker({
-        position: new google.maps.LatLng(locations[i].get("location").latitude,  locations[i].get("location").longitude),
+        position: new google.maps.LatLng(locations[i].latitude,  locations[i].longitude),
         map: map,
         icon: icon,
         title: "#" + (i + 1)
             + '\n'
-            + '\n' + moment(locations[i].get("time_start")).calendar()
-            + ' - ' + moment(locations[i].get("time_end")).calendar()
+            + '\n' + moment(locations[i].timeStart).calendar()
+            + ' - ' + moment(locations[i].timeEnd).calendar()
             + '\n' + spent
             + '\n'
-            + '\n' + locations[i].get("near_location_name")
+            // + '\n' + locations[i].get("near_location_name")
             + '\n' + "approx distance: "
-              + locations[i].get("near_location_distance")
+              // + locations[i].get("near_location_distance")
             + '\n --'
-            + '\n' + "accuracy: " + locations[i].get("accuracy") + "m"
+            + '\n' + "accuracy: " + locations[i].accuracy + "m"
             + '\n' + "updateTime: "
-              + moment(locations[i].get("updateTime")).calendar()
+              // + moment(locations[i].get("updateTime")).calendar()
             + '\n' + "broadcastTime: "
-              + moment(locations[i].get("broadcastTime")).calendar()
-            + '\n' + "user_id: " + locations[i].get("user_id")
+              // + moment(locations[i].get("broadcastTime")).calendar()
+            + '\n' + "user_id: " + locations[i].userId
       })
     };
     if(i == 0){
@@ -429,34 +507,34 @@ function load_data(){
       strokeWeight: 1,
       fillOpacity: 0.05,
       map: map,
-      radius: locations[i].get("accuracy"),    // x miles in metres
-      fillColor: (locations[i].get("accuracy") == 200
-       || locations[i].get("accuracy") == 69)?'#21F321':'#2196F3' //geofence
+      radius: locations[i].accuracy,    // x miles in metres
+      fillColor: (locations[i].accuracy == 200
+       || locations[i].accuracy == 69)?'#21F321':'#2196F3' //geofence
     }));
     circles[i].bindTo('center', markers[i], 'position');
 
     var contentString = '<div id=content>'
       + "#" + (i + 1)
       + '<br/>'
-      + '<br/>' + moment(locations[i].get("time_start")).calendar()
-      + ' - ' + moment(locations[i].get("time_end")).calendar()
+      + '<br/>' + moment(locations[i].timeStart).calendar()
+      + ' - ' + moment(locations[i].timeEnd).calendar()
       + '<br/>' + spent
       + '<br/>'
-      + '<br/>' + locations[i].get("near_location_name")
+      // + '<br/>' + locations[i].get("near_location_name")
       + '<br/>' + "approx distance: "
-        + locations[i].get("near_location_distance")
+        // + locations[i].get("near_location_distance")
       + '<br/> --'
-      + '<br/>' + "accuracy: " + locations[i].get("accuracy") + "m"
+      + '<br/>' + "accuracy: " + locations[i].accuracy + "m"
       + '<br/>' + "updateTime: "
-        + moment(locations[i].get("updateTime")).calendar()
+        // + moment(locations[i].get("updateTime")).calendar()
       + '<br/>' + "broadcastTime: "
-        + moment(locations[i].get("broadcastTime")).calendar()
-      + '<br/>' + "user_id: " + locations[i].get("user_id")
+        // + moment(locations[i].get("broadcastTime")).calendar()
+      + '<br/>' + "user_id: " + locations[i].userId
       + '</div>';
     infowindows.push(new google.maps.InfoWindow({
       position: new google.maps.LatLng(
-        locations[i].get("location").latitude,
-        locations[i].get("location").longitude),
+        locations[i].latitude,
+        locations[i].longitude),
       content: contentString,
       maxWidth: 200
     }));
@@ -467,8 +545,8 @@ function load_data(){
     })(i));
 
     flightPlanCoordinates.push(new google.maps.LatLng(
-      locations[i].get("location").latitude,
-      locations[i].get("location").longitude));
+      locations[i].latitude,
+      locations[i].longitude));
   }
 
   window.flightPath = new google.maps.Polyline({
