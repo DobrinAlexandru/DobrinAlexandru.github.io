@@ -20,9 +20,9 @@ function list_locations() {
   // });
   _.each(locations, function(location, idx){
     $('<a href="#" class="list-group-item" onclick="show_pos('+ idx +')">'
-      + moment(location.timeStart).calendar()
+      + moment(location.time).calendar()
       + ' - '
-      + moment(location.timeEnd).calendar()
+      + moment(location.time).calendar()
       // +'<span class="badge">'
       // + (locationsHere[getLocationTuple(location)])
       // +'</span>'
@@ -134,9 +134,7 @@ function clearMap(){
   localStorage["lastTimeEnd"] = '';
   deleteMarkers();
 }
-function latestLocations(){
-  query_latest_locations();
-}
+
 function refresh(){
   deleteMarkers();
   query_parse();
@@ -176,35 +174,7 @@ var nickname_hash = {
   "Dorian": "97mX1dB5ay"
 };
 
-function query_latest_locations(){
-  var query = new Parse.Query("_User");
 
-  var timeStart = $("input[name='timeStart']").val();
-  localStorage["lastTimeStart"] = timeStart;
-  if(timeStart)
-    timeStart = moment(timeStart);
-  else
-    timeStart = moment().startOf('day');
-
-  query.greaterThan("updatedAt", timeStart.toDate());
-  query.descending("updatedAt");
-  query.limit(1000);
-  query.find()
-    .then(function(results){
-      results.reverse();
-      console.log(results);
-      console.log(results.length + " users fetched.");
-      if(results.length == 0){
-        alert("No users that updated their location in this time range. Change the starting time (first textbox)");
-      }
-
-      showLocations(results);
-    },
-    function(error){
-      console.log("users query error: " + error.message);
-    }
-  );
-}
 
 function query_parse(){
   // var query = new Parse.Query("Locations");
@@ -242,13 +212,11 @@ function query_parse(){
   // query.limit(1000);
 
   if(user_id) {
+    console.log(user_id);
     // console.log(timeStart.valueOf());
     // console.log(timeEnd.valueOf());
-    var url = "http://api.gointersect.com/api/userLocations?"
-            + "&userId=" + user_id
-            + "&timeStart=" + timeStart.valueOf()//1144901202356
-            + "&timeEnd=" + timeEnd.valueOf()//1544928202337
-            + "&pw=4loc4";
+    var url = "http://api.gointersect.com:3000/history?"
+            + "&userID=" + user_id;
     // url = "http://query.yahooapis.com/v1/public/yql";
     function createCORSRequest(method, url) {
       var xhr = new XMLHttpRequest();
@@ -283,7 +251,7 @@ function query_parse(){
      var responseText = xhr.responseText;
      console.log(responseText);
      // process the response.
-     var results = JSON.parse(responseText).locations;
+     var results = JSON.parse(responseText);
 
      results.reverse();
      console.log(results);
@@ -476,8 +444,8 @@ function load_data(){
         icon: icon,
         title: "#" + (i + 1)
             + '\n'
-            + '\n' + moment(locations[i].timeStart).calendar()
-            + ' - ' + moment(locations[i].timeEnd).calendar()
+            + '\n' + moment(locations[i].time).calendar()
+            + ' - ' + moment(locations[i].time).calendar()
             + '\n' + spent
             + '\n'
             // + '\n' + locations[i].get("near_location_name")
@@ -516,8 +484,8 @@ function load_data(){
     var contentString = '<div id=content>'
       + "#" + (i + 1)
       + '<br/>'
-      + '<br/>' + moment(locations[i].timeStart).calendar()
-      + ' - ' + moment(locations[i].timeEnd).calendar()
+      + '<br/>' + moment(locations[i].time).calendar()
+      + ' - ' + moment(locations[i].time).calendar()
       + '<br/>' + spent
       + '<br/>'
       // + '<br/>' + locations[i].get("near_location_name")
