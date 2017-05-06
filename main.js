@@ -215,7 +215,7 @@ function query_parse(){
     console.log(user_id);
     // console.log(timeStart.valueOf());
     // console.log(timeEnd.valueOf());
-    var url = "http://api.gointersect.com:3000/history?"
+    var url = "http://aloc9.gointersect.com:3000/history?"
             + "&userID=" + user_id;
     // url = "http://query.yahooapis.com/v1/public/yql";
     function createCORSRequest(method, url) {
