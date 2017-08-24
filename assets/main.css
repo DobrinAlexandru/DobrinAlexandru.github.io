@@ -1,5 +1,5 @@
 body {
- background-color: #3498db;
+ background-color: #ff0000 ;
  text-align: center;
 }
 
@@ -17,8 +17,8 @@ header {
 
 @media screen and (min-width: 767px) {
 	header {
-	    margin-top: 200px;
-	    height: 157px;
+	    margin-top: 20px;
+	    height: 557px;
 	    background-image: url("images/ic_launcher.png");
 	}
 }
